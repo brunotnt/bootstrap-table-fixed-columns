@@ -51,11 +51,14 @@
 
         this.initFixedColumns();
 
-        var that = this, $trs = this.$header.find('tr').clone();
-        $trs.each(function () {
-            $(this).find('th:gt(' + that.options.fixedNumber + ')').remove();
-        });
-        this.$fixedHeaderColumns.html('').append($trs); 
+        var $tr = this.$header.find('tr:eq(0)').clone(),
+            $ths = $tr.find('th');
+
+        $tr.html('');
+        for (var i = 0; i < this.options.fixedNumber; i++) {
+            $tr.append($ths.eq(i).clone());
+        }
+        this.$fixedHeaderColumns.html('').append($tr);
     };
 
     BootstrapTable.prototype.initBody = function () {
@@ -65,8 +68,7 @@
             return;
         }
 
-        var that = this,
-            rowspan = 0;
+        var that = this;
 
         this.$fixedBodyColumns.html('');
         this.$body.find('> tr[data-index]').each(function () {
@@ -74,19 +76,10 @@
                 $tds = $tr.find('td');
 
             $tr.html('');
-            var end = that.options.fixedNumber;
-            if (rowspan > 0) {
-                --end;
-                --rowspan;
-            }
-            for (var i = 0; i < end; i++) {
+            for (var i = 0; i < that.options.fixedNumber; i++) {
                 $tr.append($tds.eq(i).clone());
             }
             that.$fixedBodyColumns.append($tr);
-            
-            if ($tds.eq(0).attr('rowspan')){
-            	rowspan = $tds.eq(0).attr('rowspan') - 1;
-            }
         });
     };
 
@@ -121,18 +114,24 @@
                 index = i - 1;
             }
 
-            that.$fixedHeader.find('th[data-field="' + visibleFields[index] + '"]')
-                .find('.fht-cell').width($this.innerWidth());
+            var $th = that.$fixedHeader.find('th[data-field="' + visibleFields[index] + '"]');
+            $th.find('.fht-cell').width($this.innerWidth());
             headerWidth += $this.outerWidth();
+
+            $th.data('fix-pos', index);
         });
         this.$fixedHeader.width(headerWidth + 1).show();
+
+        // fix click event
+        this.$fixedHeader.delegate("tr th", 'click', function() {
+            $(this).parents(".fixed-table-container").find(".fixed-table-body table thead tr th:eq("+$(this).data("fix-pos")+") .sortable").click();
+        })
     };
 
     BootstrapTable.prototype.fitBodyColumns = function () {
         var that = this,
             top = -(parseInt(this.$el.css('margin-top')) - 2),
-            // the fixed height should reduce the scorll-x height
-            height = this.$tableBody.height() - 14;
+            height = this.$tableBody.height() - 2;
 
         if (!this.$body.find('> tr[data-index]').length) {
             this.$fixedBody.hide();
@@ -172,6 +171,37 @@
             var index = $(this).data('index');
             that.$body.find('> tr[data-index="' + index + '"]').removeClass('hover');
         });
+        
+        // fix td width bug
+        var $first_tr = that.$body.find('tr:eq(0)');
+        that.$fixedBody.find('tr:eq(0)').find("td").each(function(index) {
+            $(this).width($first_tr.find("td:eq("+index+")").width())
+        });
+        
+        // Sotto Fix click-cell
+        this.$fixedBody.find('tr').each( function (i) {
+        	var $tr = $(this),
+            	tIndex = i;
+        	
+        	$tr.find('td').each( function (i) {
+	        	var $td = $(this),
+	            	index = i;
+	        	
+	        	if (i >= that.options.fixedNumber) {
+	                return false;
+	            }
+	        	
+	        	$td.off('click dblclick').on('click dblclick', function (e) {
+	        		var $td = $(this),
+	                    $tr = $td.parent(),
+	                    tIndex = $tr.data('index'),
+	                    index = $td[0].cellIndex,
+	                    $target = that.$body.find('tr[data-index="' + tIndex + '"]>td:eq(' + index + ')');
+	        		
+	        		$target.click();
+	        	} );
+	        } );
+        } );
     };
 
 })(jQuery);
